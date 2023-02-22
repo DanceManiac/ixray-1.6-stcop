@@ -618,38 +618,44 @@ static const float TENDTO_SPEED		= 5.f;
 
 void player_hud::update_inertion(Fmatrix& trans)
 {
-	if ( inertion_allowed() )
-	{
-		Fmatrix								xform;
-		Fvector& origin						= trans.c; 
-		xform								= trans;
-
-		static Fvector						st_last_dir={0,0,0};
-
-		// calc difference
-		Fvector								diff_dir;
-		diff_dir.sub						(xform.k, st_last_dir);
-
-		// clamp by PI_DIV_2
-		Fvector last;						last.normalize_safe(st_last_dir);
-		float dot							= last.dotproduct(xform.k);
-		if (dot<EPS){
-			Fvector v0;
-			v0.crossproduct					(st_last_dir,xform.k);
-			st_last_dir.crossproduct		(xform.k,v0);
-			diff_dir.sub					(xform.k, st_last_dir);
-		}
-
-		// tend to forward
-		st_last_dir.mad						(diff_dir,TENDTO_SPEED*Device.fTimeDelta);
-		origin.mad							(diff_dir,ORIGIN_OFFSET);
-
-		// pitch compensation
-		float pitch							= angle_normalize_signed(xform.k.getP());
-		origin.mad							(xform.k,	-pitch * PITCH_OFFSET_D);
-		origin.mad							(xform.i,	-pitch * PITCH_OFFSET_R);
-		origin.mad							(xform.j,	-pitch * PITCH_OFFSET_N);
+	static float pitch_factor = 1.0f;
+	if (inertion_allowed()) {
+		pitch_factor += Device.fTimeDelta / 0.25f;
 	}
+	else {
+		pitch_factor -= Device.fTimeDelta / 0.25f;
+	}
+	clamp(pitch_factor, 0.0f, 1.0f);
+
+	Fmatrix								xform;
+	Fvector& origin = trans.c;
+	xform = trans;
+
+	static Fvector						st_last_dir = { 0,0,0 };
+
+	// calc difference
+	Fvector								diff_dir;
+	diff_dir.sub(xform.k, st_last_dir);
+
+	// clamp by PI_DIV_2
+	Fvector last;						last.normalize_safe(st_last_dir);
+	float dot = last.dotproduct(xform.k);
+	if (dot < EPS) {
+		Fvector v0;
+		v0.crossproduct(st_last_dir, xform.k);
+		st_last_dir.crossproduct(xform.k, v0);
+		diff_dir.sub(xform.k, st_last_dir);
+	}
+
+	// tend to forward
+	st_last_dir.mad(diff_dir, TENDTO_SPEED * Device.fTimeDelta);
+	origin.mad(diff_dir, ORIGIN_OFFSET);
+
+	// pitch compensation
+	float pitch = angle_normalize_signed(xform.k.getP()) * pitch_factor;
+	origin.mad(xform.k, -pitch * PITCH_OFFSET_D);
+	origin.mad(xform.i, -pitch * PITCH_OFFSET_R);
+	origin.mad(xform.j, -pitch * PITCH_OFFSET_N);
 }
 
 
